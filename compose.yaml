@@ -1,0 +1,26 @@
+services:
+  dashboard:
+    build: .
+    image: instagram-ai-agent:local
+    restart: unless-stopped
+    ports:
+      - "8186:8080"
+    environment:
+      DASH_USER: ${DASH_USER:?Set DASH_USER}
+      DASH_PASS: ${DASH_PASS:?Set DASH_PASS}
+      TZ: America/Los_Angeles
+    volumes:
+      - workspace:/workspace
+  worker:
+    image: instagram-ai-agent:local
+    profiles: [worker]
+    restart: unless-stopped
+    command: [run]
+    healthcheck:
+      disable: true
+    environment:
+      TZ: America/Los_Angeles
+    volumes:
+      - workspace:/workspace
+volumes:
+  workspace:

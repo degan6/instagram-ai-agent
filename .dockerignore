@@ -1,0 +1,12 @@
+.git
+.env*
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+logs
+niche.yaml
+data/*
+!data/ideas/
+!data/ideas/seed.json
+!data/knowledge/
