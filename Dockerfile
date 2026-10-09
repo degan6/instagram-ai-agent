@@ -7,6 +7,7 @@ COPY src ./src
 RUN pip install . && playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
 COPY data /opt/seed-data
 COPY docker /opt/docker
+RUN python /opt/docker/test_entrypoint.py
 RUN useradd --uid 10001 --create-home agent && mkdir /workspace && chown agent:agent /workspace
 WORKDIR /workspace
 USER agent

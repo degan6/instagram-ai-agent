@@ -18,7 +18,7 @@ if args and args[0] == "dashboard":
             target_audience="Not configured yet",
             voice={"tone": ["clear"], "persona": "Pending account and content configuration."},
             aesthetic={"palette": ["#000000", "#ffffff"]},
-            hashtags={"core": []}, safety={"require_review": True},
+            hashtags={"core": ["setup", "required", "placeholder"]}, safety={"require_review": True},
         )
         Path("niche.yaml").write_text(yaml.safe_dump(config.model_dump(mode="json")))
         Path(".setup-required").touch()
