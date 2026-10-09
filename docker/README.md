@@ -26,3 +26,23 @@ volume above. Replace build with a Git context pinned to your fork commit, e.g.
 Configure DASH_USER/DASH_PASS as Coolify environment variables. Keep the dashboard
 on your LAN or put it behind HTTPS before accessing it over an untrusted network.
 The dashboard is a status/review UI; initial setup is done in the container terminal.
+
+## LiteLLM / budgeted OpenRouter gateway
+
+Set `OPENROUTER_BASE_URL` to your LiteLLM `/v1` endpoint and
+`OPENROUTER_API_KEY` to a dedicated restricted virtual key, not the master key.
+Register the permitted OpenRouter model names in LiteLLM. Store the real
+OpenRouter credential only at the gateway. All text, JSON, tool-based structured
+output, vision, and setup validation requests use this base URL; failures do not
+fall back to the public OpenRouter endpoint.
+
+Optional `OPENROUTER_TEXT_MODELS`, `OPENROUTER_JSON_MODELS`, and
+`OPENROUTER_VISION_MODELS` select comma-separated fallback chains. Defaults are
+unchanged when unset. LiteLLM must allow and route each listed model. Give both
+containers these environment variables when enabling the worker.
+
+Enforce dollar budgets in LiteLLM using one virtual key with simultaneous
+`budget_limits` windows (for example `24h` at $1 and `30d` at $10). The agent's
+`budget` section only limits Instagram actions, not dollars. Gateway accounting
+can lag in-flight requests; these are spend-based stops, not prepaid reservations.
+Separate media providers are outside the LLM gateway budget.

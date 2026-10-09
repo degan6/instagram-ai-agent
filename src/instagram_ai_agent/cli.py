@@ -1115,6 +1115,15 @@ def _setup_pick_niche(*, minimal: bool) -> NicheConfig:
 
 def _setup_get_openrouter_key() -> str:
     """Browser-open flow for OpenRouter free-tier key + live validation."""
+    if os.environ.get("OPENROUTER_BASE_URL"):
+        existing = os.environ.get("OPENROUTER_API_KEY", "")
+        if existing:
+            ok, msg = _validate_openrouter_key(existing)
+            if not ok:
+                raise RuntimeError(f"Configured LLM gateway key failed validation: {msg}")
+            console.print(f"  [green]✓[/green] Using configured LLM gateway — {msg}")
+            return existing
+        raise RuntimeError("Set OPENROUTER_API_KEY to your gateway virtual key before setup.")
     url = "https://openrouter.ai/keys"
     console.print(f"  Opening [bold]{url}[/bold] — sign in, click [bold]Create key[/bold].")
     console.print(
@@ -1631,8 +1640,9 @@ def _capture_cookies_blob() -> dict[str, str]:
 def _validate_openrouter_key(key: str) -> tuple[bool, str]:
     try:
         import httpx
+        from instagram_ai_agent.core.llm import openrouter_base_url
         r = httpx.get(
-            "https://openrouter.ai/api/v1/models",
+            openrouter_base_url() + "/models",
             headers={"Authorization": f"Bearer {key}"},
             timeout=10.0,
         )

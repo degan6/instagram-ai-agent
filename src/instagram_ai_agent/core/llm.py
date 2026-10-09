@@ -16,7 +16,7 @@ import os
 import random
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -218,15 +218,32 @@ def _retry_after_seconds(err: Exception) -> float | None:
         return None
 
 
+def openrouter_base_url() -> str:
+    """Resolve at call time so .env loaded after imports is respected."""
+    return os.environ.get("OPENROUTER_BASE_URL", _OR).rstrip("/")
+
+
+def _configured_chain(chain: list[Endpoint], kind: str) -> list[Endpoint]:
+    """Optional gateway model allowlist; preserve upstream defaults when unset."""
+    configured = os.environ.get(f"OPENROUTER_{kind}_MODELS")
+    if configured is None:
+        return chain
+    models = list(dict.fromkeys(m.strip() for m in configured.split(",") if m.strip()))
+    if not models:
+        raise ValueError(f"OPENROUTER_{kind}_MODELS must contain at least one model")
+    return [replace(chain[0], model=model) for model in models]
+
+
 def _client_for(ep: Endpoint) -> AsyncOpenAI | None:
     key = os.environ.get(ep.env_key)
     if not key:
         return None
-    cache_key = (ep.base_url, key)
+    base_url = openrouter_base_url() if ep.provider == "openrouter" else ep.base_url
+    cache_key = (base_url, key)
     client = _clients.get(cache_key)
     if client is None:
         client = AsyncOpenAI(
-            base_url=ep.base_url,
+            base_url=base_url,
             api_key=key,
             timeout=httpx.Timeout(60.0, connect=10.0),
             max_retries=0,  # we handle retries via tenacity on the outer loop
@@ -359,7 +376,7 @@ async def generate(
     json_mode: bool = False,
 ) -> str:
     """Generate text for a task. Tries each endpoint in the chain until one succeeds."""
-    chain = ROUTES[task]
+    chain = _configured_chain(ROUTES[task], "VISION" if task == "vision" else "TEXT")
     messages: list[dict[str, Any]] = []
     if system:
         messages.append({"role": "system", "content": system})
@@ -523,7 +540,7 @@ async def generate_json_model(
     effective_mt = max_tokens or default_mt
 
     last_err: Exception | None = None
-    for ep in JSON_CHAIN:
+    for ep in _configured_chain(JSON_CHAIN, "JSON"):
         raw_client = _client_for(ep)
         if raw_client is None:
             continue
@@ -635,7 +652,7 @@ async def generate_json(
     default_mt, default_temp = _JSON_TASK_DEFAULTS.get(task, (2048, 0.2))
     effective_temp = temperature if temperature is not None else default_temp
     effective_mt = max_tokens or default_mt
-    chain = JSON_CHAIN
+    chain = _configured_chain(JSON_CHAIN, "JSON")
     last_err: Exception | None = None
     for ep in chain:
         if _client_for(ep) is None:
@@ -815,7 +832,7 @@ def _extract_balanced(s: str) -> str | None:
 
 # ───── Vision helper ─────
 async def describe_image(image_url: str, question: str = "Describe this image.") -> str:
-    chain = ROUTES["vision"]
+    chain = _configured_chain(ROUTES["vision"], "VISION")
     last_err: Exception | None = None
     for ep in chain:
         if _client_for(ep) is None:
